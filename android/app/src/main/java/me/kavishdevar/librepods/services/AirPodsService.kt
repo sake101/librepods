@@ -1196,20 +1196,22 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
-                val geminiIntent = packageManager.getLaunchIntentForPackage(
-                    "com.google.android.apps.bard"
-                )
-                if (geminiIntent != null) {
-                    geminiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    startActivity(geminiIntent)
-                } else {
-                    val fallback = Intent(Intent.ACTION_ASSIST).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
+                Handler(Looper.getMainLooper()).post {
                     try {
-                        startActivity(fallback)
+                        val geminiIntent = packageManager.getLaunchIntentForPackage(
+                            "com.google.android.apps.bard"
+                        )
+                        if (geminiIntent != null) {
+                            geminiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(geminiIntent)
+                        } else {
+                            val fallback = Intent(Intent.ACTION_ASSIST).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(fallback)
+                        }
                     } catch (e: Exception) {
-                        Log.w("AirPodsService", "No assistant available: ${e.message}")
+                        Log.w("AirPodsService", "Assistant launch failed: ${e.message}")
                     }
                 }
             }
