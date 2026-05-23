@@ -42,6 +42,13 @@
 <!--        android:maxSdkVersion="30" />-->
     <uses-permission android:name="com.android.vending.BILLING" />
 
+    <queries>
+        <package android:name="com.google.android.apps.bard" />
+        <intent>
+            <action android:name="android.intent.action.ASSIST" />
+        </intent>
+    </queries>
+
     <application
         android:name=".LibrePodsApplication"
         android:allowBackup="true"
