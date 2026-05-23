@@ -18,22 +18,26 @@
 
 package me.kavishdevar.librepods.presentation.viewmodel
 
+import android.os.Build
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
+import android.util.Log
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import me.kavishdevar.librepods.billing.BillingManager
 import me.kavishdevar.librepods.bluetooth.AACPManager
@@ -353,7 +357,7 @@ class AirPodsViewModel(
                 "CYCLE_NOISE_CONTROL_MODES"
             ) ?: "CYCLE_NOISE_CONTROL_MODES"
         )
-        val vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false)
+        val vendorIdHook = Build.VERSION.SDK_INT >= 36 || xposedRemotePref.getBoolean("vendor_id_hook", false)
         val dynamicEndOfCharge = sharedPreferences.getBoolean("dynamic_end_of_charge", false)
 
         val connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false)
@@ -458,14 +462,15 @@ class AirPodsViewModel(
             _uiState.update { it.copy(loudSoundReductionEnabled = value[0].toInt() == 0x01) }
         }
         viewModelScope.launch(Dispatchers.IO) {
+            val attManager = service.attManager ?: return@launch
+            if (attManager.socket?.isConnected != true) {
+                Log.w("AirPodsVM", "ATT not connected, skipping write")
+                return@launch
+            }
             try {
-                service.attManager?.connect()
-                while (service.attManager?.socket?.isConnected != true) {
-                    delay(250)
-                }
-                service.attManager?.write(handle, value)
+                attManager.write(handle, value)
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.w("AirPodsVM", "ATT write failed: ${e.message}")
             }
         }
     }
@@ -486,18 +491,43 @@ class AirPodsViewModel(
         }
     }
 
-    fun observeATT() {
-        viewModelScope.launch(Dispatchers.IO) {
-            service.attManager?.connect()
-            while (service.attManager?.socket?.isConnected != true) {
-                delay(1000)
-            }
-            service.attManager?.enableNotifications(ATTHandles.LOUD_SOUND_REDUCTION)
-            service.attManager?.enableNotifications(ATTHandles.TRANSPARENCY)
-            service.attManager?.enableNotifications(ATTHandles.HEARING_AID)
+    private var attObserveJob: Job? = null
 
-            while (true) {
-                refreshATT()
+    fun observeATT() {
+        attObserveJob?.cancel()
+        attObserveJob = viewModelScope.launch(Dispatchers.IO) {
+            val attManager = service.attManager ?: return@launch
+
+            var connected = false
+            repeat(10) { attempt ->
+                if (!isActive) return@launch
+                try {
+                    attManager.connect()
+                    if (attManager.socket?.isConnected == true) {
+                        connected = true
+                        return@repeat
+                    }
+                } catch (e: Exception) {
+                    Log.w("AirPodsVM", "ATT connect attempt ${attempt + 1} failed: ${e.message}")
+                }
+                delay(2000)
+            }
+
+            if (!connected) {
+                Log.w("AirPodsVM", "ATT channel unavailable after 10 attempts, giving up")
+                return@launch
+            }
+
+            attManager.enableNotifications(ATTHandles.LOUD_SOUND_REDUCTION)
+            attManager.enableNotifications(ATTHandles.TRANSPARENCY)
+            attManager.enableNotifications(ATTHandles.HEARING_AID)
+
+            while (isActive) {
+                try {
+                    refreshATT()
+                } catch (e: Exception) {
+                    Log.w("AirPodsVM", "ATT refresh failed: ${e.message}")
+                }
                 delay(15000)
             }
         }

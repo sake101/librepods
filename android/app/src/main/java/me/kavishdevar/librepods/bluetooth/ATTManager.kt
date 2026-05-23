@@ -70,6 +70,8 @@ class ATTManager(private val adapter: BluetoothAdapter, private val device: Blue
 
     @SuppressLint("MissingPermission")
     fun connect() {
+        if (socket?.isConnected == true) return
+
         val uuid = ParcelUuid.fromString("00000000-0000-0000-0000-000000000000")
 
         try {

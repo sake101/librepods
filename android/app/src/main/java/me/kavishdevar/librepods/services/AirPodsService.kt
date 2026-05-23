@@ -1196,16 +1196,21 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    val intent = Intent(Intent.ACTION_VOICE_COMMAND).apply {
+                val geminiIntent = packageManager.getLaunchIntentForPackage(
+                    "com.google.android.apps.bard"
+                )
+                if (geminiIntent != null) {
+                    geminiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(geminiIntent)
+                } else {
+                    val fallback = Intent(Intent.ACTION_ASSIST).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
-                    startActivity(intent)
-                } else {
-                    Log.w(
-                        "AirPodsParser",
-                        "Digital Assistant action is not supported on this Android version."
-                    )
+                    try {
+                        startActivity(fallback)
+                    } catch (e: Exception) {
+                        Log.w("AirPodsService", "No assistant available: ${e.message}")
+                    }
                 }
             }
 
@@ -2454,7 +2459,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         )
         if (!::socket.isInitialized) return
         if (socket.isConnected) {
-            if (!XposedRemotePrefProvider.create().getBoolean("vendor_id_hook", false) || ownsConnection == 0) {
+            if (!(Build.VERSION.SDK_INT >= 36 || XposedRemotePrefProvider.create().getBoolean("vendor_id_hook", false)) || ownsConnection == 0) {
                 Log.d(TAG, "not taking over, vendorid is probably not set to apple")
                 return
             }
@@ -2683,9 +2688,14 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 
                         BluetoothConnectionManager.setCurrentConnection(socket, device)
                         val xposedRemotePref = XposedRemotePrefProvider.create()
-                        if (xposedRemotePref.getBoolean("vendor_id_hook", false)) {
-                            attManager = ATTManager(adapter, device)
-                            attManager!!.connect()
+                        if (Build.VERSION.SDK_INT >= 36 || xposedRemotePref.getBoolean("vendor_id_hook", false)) {
+                            try {
+                                attManager = ATTManager(adapter, device)
+                                attManager!!.connect()
+                            } catch (e: Exception) {
+                                Log.w("AirPodsService", "ATTManager connect failed (rootless): ${e.message}")
+                                attManager = null
+                            }
                         }
 
                         // Create AirPodsInstance from stored config if available

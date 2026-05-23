@@ -1,5 +1,6 @@
 package me.kavishdevar.librepods.presentation.viewmodel
 
+import android.os.Build
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
@@ -87,7 +88,7 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 useAlternateHeadTrackingPackets = sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true),
                 conversationalAwarenessVolume = sharedPreferences.getInt("conversational_awareness_volume", 43).toFloat(),
                 cameraPackageValue = sharedPreferences.getString("custom_camera_package", "") ?: "",
-                vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false),
+                vendorIdHook = Build.VERSION.SDK_INT >= 36 || xposedRemotePref.getBoolean("vendor_id_hook", false),
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
                 showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
                 showIslandPopup = sharedPreferences.getBoolean("show_island_popup", true)
