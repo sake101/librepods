@@ -47,6 +47,7 @@ import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.Color
 import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Binder
@@ -1198,6 +1199,13 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
                 Handler(Looper.getMainLooper()).post {
+                    try {
+                        val toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 80)
+                        toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+                        Handler(Looper.getMainLooper()).postDelayed({ toneGen.release() }, 200)
+                    } catch (e: Exception) {
+                        Log.w("AirPodsService", "Confirmation tone failed: ${e.message}")
+                    }
                     if (ShizukuInputInjector.injectVoiceAssistKey()) {
                         Log.d("AirPodsService", "Voice assist via Shizuku")
                         return@post
