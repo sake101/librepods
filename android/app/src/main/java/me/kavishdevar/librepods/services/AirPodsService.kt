@@ -1196,23 +1196,33 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.PREVIOUS_TRACK -> MediaController.sendPreviousTrack()
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
-                Handler(Looper.getMainLooper()).post {
-                    try {
-                        val geminiIntent = packageManager.getLaunchIntentForPackage(
-                            "com.google.android.apps.bard"
-                        )
-                        if (geminiIntent != null) {
-                            geminiIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            startActivity(geminiIntent)
-                        } else {
-                            val fallback = Intent(Intent.ACTION_ASSIST).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                val btAdapter = getSystemService(BluetoothManager::class.java)?.adapter
+                if (btAdapter != null && device != null) {
+                    btAdapter.getProfileProxy(this@AirPodsService, object : BluetoothProfile.ServiceListener {
+                        @SuppressLint("MissingPermission")
+                        override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
+                            if (profile == BluetoothProfile.HEADSET) {
+                                val headset = proxy as BluetoothHeadset
+                                var started = false
+                                try {
+                                    val hfpDevice = headset.connectedDevices.find { it.address == device?.address }
+                                    if (hfpDevice != null) {
+                                        started = headset.startVoiceRecognition(hfpDevice)
+                                        Log.d("AirPodsService", "startVoiceRecognition: $started")
+                                    }
+                                } catch (e: Exception) {
+                                    Log.w("AirPodsService", "startVoiceRecognition: ${e.message}")
+                                }
+                                if (!started) {
+                                    btAdapter.closeProfileProxy(BluetoothProfile.HEADSET, proxy)
+                                    launchVoiceAssistFallback()
+                                }
                             }
-                            startActivity(fallback)
                         }
-                    } catch (e: Exception) {
-                        Log.w("AirPodsService", "Assistant launch failed: ${e.message}")
-                    }
+                        override fun onServiceDisconnected(profile: Int) {}
+                    }, BluetoothProfile.HEADSET)
+                } else {
+                    launchVoiceAssistFallback()
                 }
             }
 
@@ -1221,6 +1231,27 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 sendBroadcast(Intent("me.kavishdevar.librepods.SET_ANC_MODE").apply {
                     setPackage(packageName)
                 })
+            }
+        }
+    }
+
+    private fun launchVoiceAssistFallback() {
+        Handler(Looper.getMainLooper()).post {
+            try {
+                startActivity(Intent(Intent.ACTION_VOICE_ASSIST).apply {
+                    setPackage("com.google.android.googlequicksearchbox")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            } catch (e: Exception) {
+                try {
+                    val gemini = packageManager.getLaunchIntentForPackage("com.google.android.apps.bard")
+                    if (gemini != null) {
+                        gemini.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        startActivity(gemini)
+                    }
+                } catch (e2: Exception) {
+                    Log.w("AirPodsService", "All voice assistant methods failed")
+                }
             }
         }
     }
