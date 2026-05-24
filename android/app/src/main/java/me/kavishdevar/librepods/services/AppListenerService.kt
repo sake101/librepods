@@ -22,6 +22,7 @@ package me.kavishdevar.librepods.services
 
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -41,6 +42,24 @@ var cameraOpen = false
 private var currentCustomPackage: String? = null
 
 class AppListenerService: AccessibilityService() {
+    companion object {
+        private var instance: AppListenerService? = null
+
+        fun triggerVoiceAssist(): Boolean {
+            val svc = instance ?: return false
+            return try {
+                val intent = Intent("android.intent.action.VOICE_ASSIST")
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                svc.startActivity(intent)
+                Log.d(TAG, "Voice assist launched from AccessibilityService")
+                true
+            } catch (e: Exception) {
+                Log.w(TAG, "Voice assist from AccessibilityService failed: ${e.message}")
+                false
+            }
+        }
+    }
+
     private lateinit var prefs: android.content.SharedPreferences
     private val preferenceChangeListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
         if (key == "custom_camera_package") {
@@ -55,6 +74,7 @@ class AppListenerService: AccessibilityService() {
 
     override fun onCreate() {
         super.onCreate()
+        instance = this
         prefs = getSharedPreferences("settings", MODE_PRIVATE)
         val customPackage = prefs.getString("custom_camera_package", null)
         if (!customPackage.isNullOrBlank()) {
@@ -66,6 +86,7 @@ class AppListenerService: AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        instance = null
         prefs.unregisterOnSharedPreferenceChangeListener(preferenceChangeListener)
     }
 
