@@ -1238,10 +1238,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
     private fun launchVoiceAssistFallback() {
         Handler(Looper.getMainLooper()).post {
             try {
-                startActivity(Intent(Intent.ACTION_VOICE_ASSIST).apply {
+                val voiceIntent = Intent("android.intent.action.VOICE_ASSIST").apply {
                     setPackage("com.google.android.googlequicksearchbox")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
+                }
+                startActivity(voiceIntent)
             } catch (e: Exception) {
                 try {
                     val gemini = packageManager.getLaunchIntentForPackage("com.google.android.apps.bard")
