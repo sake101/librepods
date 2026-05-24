@@ -147,6 +147,8 @@ dependencies {
     implementation(libs.libxposed.service)
     implementation(libs.play.review)
     implementation(libs.play.review.ktx)
+    implementation(libs.shizuku.api)
+    implementation(libs.shizuku.provider)
 }
 
 aboutLibraries {
