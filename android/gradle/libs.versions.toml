@@ -20,7 +20,7 @@ hilt = "2.59.2"
 xposed = "101.0.0"
 lifecycleProcess = "2.10.0"
 play = "2.0.2"
-shizuku = "13.1.5"
+shizuku = "13.6.0"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
