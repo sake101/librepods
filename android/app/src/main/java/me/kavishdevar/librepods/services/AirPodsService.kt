@@ -1198,12 +1198,12 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
             StemAction.NEXT_TRACK -> MediaController.sendNextTrack()
             StemAction.DIGITAL_ASSISTANT -> {
                 Handler(Looper.getMainLooper()).post {
-                    if (AppListenerService.triggerVoiceAssist()) {
-                        Log.d("AirPodsService", "Voice assist via AccessibilityService")
-                        return@post
-                    }
                     if (ShizukuInputInjector.injectVoiceAssistKey()) {
                         Log.d("AirPodsService", "Voice assist via Shizuku")
+                        return@post
+                    }
+                    if (AppListenerService.triggerVoiceAssist()) {
+                        Log.d("AirPodsService", "Voice assist via AccessibilityService")
                         return@post
                     }
                     try {
